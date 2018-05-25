@@ -1,6 +1,7 @@
-%% Simulated "scaled" dataset for PCM
-% Remi Gau - 2018-04-18
-% Generates data using the PCM machinery where condition 1 is a scaled
+%% Run MVPA on simulated "scaled" dataset from PCM
+% Remi Gau - 2018-04-25
+% Generates data using the PCM machinery (https://github.com/jdiedrichsen/pcm_toolbox)
+% where condition 1 is a scaled
 % version of condition 2 and then runs an SVC on it with different type of
 % normalization (e.g Z scoring row normalization and/or mean centering
 % column normalization)
@@ -10,13 +11,15 @@
 % increases from 1 to a set value in set amount of steps.
 % 
 % Uses the libsvm for the SVC. Might require recompiling of some of the mex
-% function if you are not running this on windows.
+% function if you are not running this on windows (c and make files are in
+% subfun/libsvm/matlab)
 
 clc; clear; close all
 
 StartDir = fullfile(pwd);
 addpath(genpath(fullfile(StartDir, 'subfun')))
-addpath('D:\Dropbox\GitHub\pcm_toolbox')
+% adapt to point to wherever the PCM is on your machine
+addpath('D:\Dropbox\GitHub\pcm_toolbox') 
 
 Save_dir = fullfile(StartDir, 'results');
 mkdir(Save_dir)

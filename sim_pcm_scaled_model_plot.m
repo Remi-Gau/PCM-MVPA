@@ -1,18 +1,31 @@
-%% Simulated "scaled" dataset for PCM
+%% Vizualize simulated "scaled" dataset from PCM
 % Remi Gau - 2018-04-25
+% Generates data using the PCM machinery (https://github.com/jdiedrichsen/pcm_toolbox)
+% where condition 1 is a scaled version of condition 2 and then applies 
+% a Z scoring row normalization to see the effect on the data.
+% Results are vizualized to give an idea of how normalization might affect
+% discriminability (by SVC on an MVPA analysis).
+%
+% The simulation are run with different values for the the 2 thetas of the
+% scaled mode used to generate the data. Theta 2 is kept at 1, and theta 1
+% increases from 1 to a set value in set amount of steps.
 
-clc; clear; close all
+clc; clear;
 
-StartFolder=fullfile(pwd, '..','..');
-addpath(genpath(fullfile(StartFolder, 'SubFun')))
-Get_dependencies('D:\Dropbox')
+StartDir = fullfile(pwd);
+addpath(genpath(fullfile(StartDir, 'subfun')))
+% adapt to point to wherever the PCM is on your machine
+addpath('D:\Dropbox\GitHub\pcm_toolbox') 
+
+Fig_dir = fullfile(StartDir, 'figures');
+mkdir(Fig_dir)
 
 numSim = 1; % number of subjects
-NbVox = 500; % number of voxels or vertices in ROI
+NbVox = 500; % number of voxels (or vertices, channels...) in ROI
 NbSess = 200; % number of fMRI sessions
-theta1 = 6; % sets the upper limit of the theta range to try
+MaxTheta1 = 6; % sets the upper limit of the theta range to try
 NbSteps = 4; % number of steps between to try on the theta range
-Model2Use = 1; % model to use to generate data
+Model2Use = 1; % model to use to generate data (1 is the scaled model)
 
 
 %% Define models
@@ -46,7 +59,7 @@ Model{end}.fitAlgorithm = 'NR';
 
 %% Set values to generate data with PCM machinery
 %   theta:   numParams x 1 vector of parameters for Model
-theta = [linspace(1,theta1,NbSteps)' ones(NbSteps,1)];
+theta = [linspace(1,MaxTheta1,NbSteps)' ones(NbSteps,1)];
 
 %   signal:  Signal variance: scalar, <numSim x 1>, <1xnumVox>, or <numSim x numVox>
 %   noise:   Noise  variance: scalar, <numSim x 1>, <1xnumVox>, or <numSim x numVox>
@@ -85,7 +98,7 @@ X = [1 0;0 1];
 close all
 
 Nb_col_plot = 4;
-FigDim = [100, 100, 1000, 1500];
+FigDim = [50, 50, 1400, 700];
 Visibility = 'on';
 
 figure('name', 'PCM-MVPA', 'Position', FigDim, 'Color', [1 1 1], ...
@@ -98,6 +111,8 @@ for iTheta = 1:NbSteps
     [Y,partVec,condVec] = pcm_generateData(Model{Model2Use},theta(iTheta,:)',...
         D,numSim,signal,noise,'signalDist', noiseDist, ...
         'noiseDist', signalDist, 'design', X);
+
+    G(:,:,iTheta) = pcm_estGCrossval(Y{1},partVec,condVec(:,1) + condVec(:,2)*2);
     
     %% Plots one condition against another for all voxels
     % (to show how one is the scaled version of the other)
@@ -110,13 +125,14 @@ for iTheta = 1:NbSteps
         mean(Y{1}(logical(condVec(:,1)),:)),...
         mean(Y{1}(logical(condVec(:,2)),:)), 'b.')
     
-    title('Cdt 2 = f(Cdt 1)')
+    title(sprintf('Cdt 2 = f(Cdt 1)\nAveraged across sessions'))
     xlabel('Cdt 1')
     ylabel(sprintf('Theta 1 = %0.2f\n\nCdt 2',theta(iTheta,1)))
     ax = axis;
     axis([-20 20 ax(3) ax(4)])
 
     iSubplot = iSubplot + 1;
+    
     
     %% plot one voxel against another for the 2 conditions across all sessions 
     %(to show "discriminability")
@@ -134,15 +150,17 @@ for iTheta = 1:NbSteps
         Y{1}(logical(condVec(:,1)),1),...
         Y{1}(logical(condVec(:,1)),2), '.b')    
     
-    title('Voxel 1 = f(Voxel 2)')
+    title(sprintf('Voxel 1 = f(Voxel 2)\nAll sessions'))
     xlabel('Voxel 1')
     ylabel('Voxel 2')
+    
+    if iTheta == 1
+    legend({'Cdt 1','Cdt 2'},'Location','SouthEastOutside')
+    end
 
     iSubplot = iSubplot + 1;
     
-    
-    
-    
+
     %% same as above but after Z scoring across each row (examplar)
     tmp = zscore(Y{1},0,2);
     
@@ -182,3 +200,28 @@ for iTheta = 1:NbSteps
 
 end
 
+print(gcf, fullfile(Fig_dir, 'PCM_Scaled.tif'), '-dtiff')
+
+
+%% Plot the corresponding G matrices
+close all
+
+FigDim = [50, 50, 300, 700];
+
+figure('name', 'PCM-MVPA-GMat', 'Position', FigDim, 'Color', [1 1 1], ...
+    'Visible', Visibility);
+
+CLIM = [0 max(G(:))];
+
+iSubplot = 1;
+for iTheta = 1:NbSteps
+    subplot(NbSteps,1,iSubplot)
+    imagesc(G(:,:,iTheta),CLIM)
+    set(gca,'xtick', 1:2, 'xticklabel', ({'Cdt 1', 'Cdt 2'}),...
+        'ytick', 1:2, 'yticklabel', ({'Cdt 1', 'Cdt 2'}) );
+    axis square
+    title(sprintf('theta 1 = %3.2f ; theta 2 = 1', theta(iTheta,1)))
+    iSubplot = iSubplot + 1;
+end
+
+print(gcf, fullfile(Fig_dir, 'PCM_Scaled_G_Mat.tif'), '-dtiff')
