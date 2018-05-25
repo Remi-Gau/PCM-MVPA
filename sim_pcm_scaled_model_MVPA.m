@@ -2,7 +2,15 @@
 % Remi Gau - 2018-04-18
 % Generates data using the PCM machinery where condition 1 is a scaled
 % version of condition 2 and then runs an SVC on it with different type of
-% normalization (Z score
+% normalization (e.g Z scoring row normalization and/or mean centering
+% column normalization)
+%
+% The simulation are run with different values for the the 2 thetas of the
+% scaled mode used to generate the data. Theta 2 is kept at 1, and theta 1
+% increases from 1 to a set value in set amount of steps.
+% 
+% Uses the libsvm for the SVC. Might require recompiling of some of the mex
+% function if you are not running this on windows.
 
 clc; clear; close all
 
@@ -16,10 +24,13 @@ Fig_dir = fullfile(StartDir, 'figures');
 mkdir(Fig_dir)
 
 
-numSim = 50;
-NbVox = 500;
-NbSess = 500;
-NbSteps = 21;
+NbSim = 10; % number of simulations (or subjects)
+NbVox = 200; % number of voxels / channels / features (in MVPA lingo)
+NbSess = 20; % number of examplars for each condition
+
+MaxTheta1 = 6; % max value taken by theta 1
+NbSteps = 5; % number of steps between theta1 = 1 and its max value
+
 
 
 %% Define models
@@ -31,31 +42,31 @@ Model{end}.name       = 'Scaled';
 Model{end}.numGparams = size(Model{end}.Ac,3);
 Model{end}.fitAlgorithm = 'NR';
 
-% Scaled and independent
-Model{end+1}.type       = 'feature';
-Model{end}.Ac = [1 0]';
-Model{end}.Ac(:,1,2) = [0 1]';
-Model{end}.Ac(:,2,3) = [0 1]';
-Model{end}.name       = 'Scaled+Independent';
-Model{end}.numGparams = size(Model{end}.Ac,3);
-Model{end}.fitAlgorithm = 'NR';
-
-% Independent
-Model{end+1}.type       = 'feature';
-Model{end}.Ac = [1 0]';
-Model{end}.Ac(:,2,2) = [0 1]';
-Model{end}.name       = 'Independent';
-Model{end}.numGparams = size(Model{end}.Ac,3);
-Model{end}.fitAlgorithm = 'NR';
+% % Scaled and independent
+% Model{end+1}.type       = 'feature';
+% Model{end}.Ac = [1 0]';
+% Model{end}.Ac(:,1,2) = [0 1]';
+% Model{end}.Ac(:,2,3) = [0 1]';
+% Model{end}.name       = 'Scaled+Independent';
+% Model{end}.numGparams = size(Model{end}.Ac,3);
+% Model{end}.fitAlgorithm = 'NR';
+% 
+% % Independent
+% Model{end+1}.type       = 'feature';
+% Model{end}.Ac = [1 0]';
+% Model{end}.Ac(:,2,2) = [0 1]';
+% Model{end}.name       = 'Independent';
+% Model{end}.numGparams = size(Model{end}.Ac,3);
+% Model{end}.fitAlgorithm = 'NR';
 
 
 %% Set values for PCM data generation
 %   theta:   numParams x 1 vector of parameters for Model
-theta = [linspace(1,10,NbSteps)' ones(NbSteps,1)];
+theta = [linspace(1,MaxTheta1,NbSteps)' ones(NbSteps,1)];
 
 %   signal:  Signal variance: scalar, <numSim x 1>, <1xnumVox>, or <numSim x numVox>
 %   noise:   Noise  variance: scalar, <numSim x 1>, <1xnumVox>, or <numSim x numVox>
-signal = ones(numSim,1)+randn(numSim,1);%rand(1,NbVox);
+signal = ones(NbSim,1)+randn(NbSim,1);%rand(1,NbVox);
 noise = 1.5;%rand(1,NbVox);
 
 %   numSim:  number of simulations,all returned in cell array Y
@@ -102,22 +113,22 @@ opt.svm.dargs = [opt.svm.dargs ' -t 0 -q']; % inherent linear kernel, quiet mode
 opt.fs.do = 0; % feature selection
 opt.rfe.do = 0; % recursive feature elimination
 opt.scaling.idpdt = 1; % scale test and training sets independently
-opt.permutation.test = 0;
+opt.permutation.test = 0; % label permutation 
 
+% Choices of image (row) or voxel/feature (column) normalization
 opt.scaling.img.eucledian = 0;
 opt.scaling.feat.mean = 0;
 opt.scaling.feat.range = 0;
 opt.scaling.feat.sessmean = 0;
 
-
+% Necessary to tell the MVPA functions what SVC to run
 SVM(1) = struct('name', 'Cst 1 VS Cdt 2', 'class', [1 2], 'ROI_2_analyse', 1);
 
+% CV scheme (based on leaving one run out from 3 different days)
 CV_id = 1:NbSess;
-
 sets = {1:6,1:7,1:7};
 [x, y, z] = ndgrid(sets{:});
 TestSessList{1,1} = [x(:) y(:) z(:)];
-
 NbCV = size(TestSessList{1,1}, 1);
 
 
@@ -126,7 +137,7 @@ NbCV = size(TestSessList{1,1}, 1);
 for iTheta = 1:size(theta,1)
     
     % generate data
-    [Y,partVec,condVec] = pcm_generateData(Model{1},theta(iTheta,:)',D,numSim,signal,noise,...
+    [Y,partVec,condVec] = pcm_generateData(Model{1},theta(iTheta,:)',D,NbSim,signal,noise,...
         'signalDist', noiseDist, 'noiseDist', signalDist, 'design', X);
     
     % to organize cross validation for MVPA
@@ -134,7 +145,7 @@ for iTheta = 1:size(theta,1)
     CV_Mat(:,2) = partVec;
     
     %%
-    for iSim = 1:numSim
+    for iSim = 1:NbSim
         
         for iCV=1:NbCV
             
@@ -181,35 +192,3 @@ end
 clear iCV iSubj iTheta Y
 
 save(fullfile(Save_dir, ['PCM_MVPA_', datestr(now, 'yyyy_mm_dd_HH_MM'), '.mat']))
-
-%%
-close all
-
-squeeze(mean(Acc,3));
-MEAN = squeeze(mean(mean(Acc,3)));
-SEM = squeeze(nansem(mean(Acc,3)));
-
-figure('Name', 'PCM_MVPA', 'Position', [100, 100, 1500, 600], 'Color', [1 1 1]);
-
-h = errorbar(repmat((1:NbSteps)',1,4)+repmat(0:.1:.3,NbSteps,1),MEAN',SEM');
-set(h(1), 'color', 'k', 'LineWidth', 1.2)
-set(h(2), 'color', 'k', 'Linestyle', '--', 'LineWidth', 1.2)
-set(h(3), 'color', 'b', 'LineWidth', 1.2)
-set(h(4), 'color', 'b', 'Linestyle', '--', 'LineWidth', 1.2)
-
-set(gca, 'xtick', 1:NbSteps, 'xticklabel', theta(:,1)./theta(:,2))
-ax = axis;
-axis([0 NbSteps+1 ax(3) ax(4)])
-
-ylabel('accuracy')
-xlabel('theta 1 / theta 2')
-
-legend({'No scaling','Img scaling: Z-score','Feat scaling: mean centering',...
-    'Img scaling: Z-score ; Feat scaling: mean centering'}, 'Location','SouthEast')
-
-text(NbSteps-3, ax(3)+(ax(4)-ax(3))*.5,...
-    sprintf(' Nb vox = %i\n Nb subj = %i\n Var_{sig} ~ N(1,1)\n Var_{noise} = 1.5', NbVox, numSim))
-
-print(gcf, fullfile(Fig_dir, ['PCM_MVPA_' datestr(now, 'yyyy_mm_dd_HH_MM') '.tif']), '-dtiff')
-
-
