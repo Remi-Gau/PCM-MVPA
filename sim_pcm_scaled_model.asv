@@ -2,8 +2,7 @@
 % Remi Gau - 2018-04-18
 % Generates data using the PCM machinery where condition 1 is a scaled
 % version of condition 2 and then runs an SVC on it with different type of
-% normalization (e.g Z scoring row normalization and/or mean centering
-% column normalization)
+% normalization (Z score
 
 clc; clear; close all
 
@@ -32,22 +31,22 @@ Model{end}.name       = 'Scaled';
 Model{end}.numGparams = size(Model{end}.Ac,3);
 Model{end}.fitAlgorithm = 'NR';
 
-% % Scaled and independent
-% Model{end+1}.type       = 'feature';
-% Model{end}.Ac = [1 0]';
-% Model{end}.Ac(:,1,2) = [0 1]';
-% Model{end}.Ac(:,2,3) = [0 1]';
-% Model{end}.name       = 'Scaled+Independent';
-% Model{end}.numGparams = size(Model{end}.Ac,3);
-% Model{end}.fitAlgorithm = 'NR';
-% 
-% % Independent
-% Model{end+1}.type       = 'feature';
-% Model{end}.Ac = [1 0]';
-% Model{end}.Ac(:,2,2) = [0 1]';
-% Model{end}.name       = 'Independent';
-% Model{end}.numGparams = size(Model{end}.Ac,3);
-% Model{end}.fitAlgorithm = 'NR';
+% Scaled and independent
+Model{end+1}.type       = 'feature';
+Model{end}.Ac = [1 0]';
+Model{end}.Ac(:,1,2) = [0 1]';
+Model{end}.Ac(:,2,3) = [0 1]';
+Model{end}.name       = 'Scaled+Independent';
+Model{end}.numGparams = size(Model{end}.Ac,3);
+Model{end}.fitAlgorithm = 'NR';
+
+% Independent
+Model{end+1}.type       = 'feature';
+Model{end}.Ac = [1 0]';
+Model{end}.Ac(:,2,2) = [0 1]';
+Model{end}.name       = 'Independent';
+Model{end}.numGparams = size(Model{end}.Ac,3);
+Model{end}.fitAlgorithm = 'NR';
 
 
 %% Set values for PCM data generation
