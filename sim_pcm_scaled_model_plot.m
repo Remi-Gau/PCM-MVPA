@@ -163,6 +163,7 @@ for iTheta = 1:NbSteps
 
     %% same as above but after Z scoring across each row (examplar)
     tmp = zscore(Y{1},0,2);
+    G_Zscore(:,:,iTheta) = pcm_estGCrossval(tmp,partVec,condVec(:,1) + condVec(:,2)*2);
     
     %%
     subplot(NbSteps,Nb_col_plot,iSubplot)
@@ -206,21 +207,30 @@ print(gcf, fullfile(Fig_dir, 'PCM_Scaled.tif'), '-dtiff')
 %% Plot the corresponding G matrices
 close all
 
-FigDim = [50, 50, 300, 700];
+FigDim = [50, 50, 600, 700];
 
 figure('name', 'PCM-MVPA-GMat', 'Position', FigDim, 'Color', [1 1 1], ...
     'Visible', Visibility);
 
 CLIM = [0 max(G(:))];
+CLIM2 = [0 max(G_Zscore(:))];
 
 iSubplot = 1;
 for iTheta = 1:NbSteps
-    subplot(NbSteps,1,iSubplot)
+    subplot(NbSteps,2,iSubplot)
     imagesc(G(:,:,iTheta),CLIM)
     set(gca,'xtick', 1:2, 'xticklabel', ({'Cdt 1', 'Cdt 2'}),...
         'ytick', 1:2, 'yticklabel', ({'Cdt 1', 'Cdt 2'}) );
     axis square
     title(sprintf('theta 1 = %3.2f ; theta 2 = 1', theta(iTheta,1)))
+    iSubplot = iSubplot + 1;
+    
+    subplot(NbSteps,2,iSubplot)
+    imagesc(G_Zscore(:,:,iTheta),CLIM2)
+    set(gca,'xtick', 1:2, 'xticklabel', ({'Cdt 1', 'Cdt 2'}),...
+        'ytick', 1:2, 'yticklabel', ({'Cdt 1', 'Cdt 2'}) );
+    axis square
+    title(sprintf('theta 1 = %3.2f ; theta 2 = 1\n Z-score normalization', theta(iTheta,1)))
     iSubplot = iSubplot + 1;
 end
 
